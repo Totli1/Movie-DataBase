@@ -22,145 +22,172 @@
 ## Main.cs
 ```csharp
  internal class Program
- {
-     static async Task Main(string[] args)
-     {
-         Console.WriteLine("Введите ключевое слово, которое встречается в названии фильма");
-         string keyword = Console.ReadLine();
-         MovieJSON result;
-         var client = new HttpClient();
-         var options = new JsonSerializerOptions
-         {
-             PropertyNameCaseInsensitive = true,
-             TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
-             WriteIndented = true
-         };
+{
+    static async Task Main(string[] args)
+    {
+        Console.WriteLine("Введите ключевое слово, которое встречается в названии фильма");
+        string keyword = Console.ReadLine();
+        string page = "1";
+        MovieJSON result;
+        var client = new HttpClient();
+        var options = new JsonSerializerOptions
+        {
+            PropertyNameCaseInsensitive = true,
+            TypeInfoResolver = new DefaultJsonTypeInfoResolver(),
+            WriteIndented = true
+        };
 
-         string jsonAPI = File.ReadAllText("appsettings.json");
-         var getAPI = JsonSerializer.Deserialize<GetAPI>(jsonAPI, options);
+        string jsonAPI = File.ReadAllText("appsettings.json");
+        var getAPI = JsonSerializer.Deserialize<GetAPI>(jsonAPI, options);
+        while (true)
+        {
 
-         var request = new HttpRequestMessage
-         {
-             Method = HttpMethod.Get,
-             RequestUri = new Uri($"https://kinopoiskapiunofficial.tech/api/v2.2/films?order=RATING&type=FILM&ratingFrom=0&ratingTo=10&yearFrom=1000&yearTo=3000&keyword={keyword}&page=1"),
-             Headers =
-         {
-             { "X-API-KEY", $"{getAPI.ApiKey}" },
-             { "Accept", "application/json" },
-         },
-         };
-      
-         using (var response = await client.SendAsync(request))
-         {
+           
 
-             var json = await response.Content.ReadAsStringAsync();
-             result = JsonSerializer.Deserialize<MovieJSON>(json, options);
-          
+            var request = new HttpRequestMessage
+            {
+                Method = HttpMethod.Get,
+                RequestUri = new Uri($"https://kinopoiskapiunofficial.tech/api/v2.2/films?order=RATING&type=FILM&ratingFrom=0&ratingTo=10&yearFrom=1000&yearTo=3000&keyword={keyword}&page={page}"),
+                Headers =
+        {
+            { "X-API-KEY", $"{getAPI.ApiKey}" },
+            { "Accept", "application/json" },
+        },
+            };
 
-         }
-         foreach (var item in result.Items)
-         {
-             Console.WriteLine(item.NameRu);
-         }
-         Console.WriteLine("Сохранить данные о фильме в бд?\n1:Да");
-         var choise = Console.ReadLine();
-         if (choise == "1")
-         {
-         await SaveMoviesToDatabase(result);
-         }
+            using (var response = await client.SendAsync(request))
+            {
+
+                var json = await response.Content.ReadAsStringAsync();
+                result = JsonSerializer.Deserialize<MovieJSON>(json, options);
+            }
+
+            Console.WriteLine($"\nВсего страниц {result.TotalPages} Вы на { page} страницы\n");
+            foreach (var item in result.Items)
+            {
+                Console.WriteLine(item.NameRu);
+            }
+
+            Console.WriteLine("\n1:Сохранить данные о фильмах в бд\n" +
+                              "2:Выбрать другую страницу\n" +
+                              "3:Изменить ключевое слово\n" +
+                              "4:Выход\n");
+            var choise = Console.ReadLine();
+
+            switch (choise)
+            {
+                case "1":
+                    await SaveMoviesToDatabase(result);
+                    break;
+
+                case "2":
+                    Console.Write("Введите страницу:");
+                    page = Console.ReadLine();
+                    break;
+
+                case "3":
+                    Console.Write("Введите страницу: ");
+                    keyword = Console.ReadLine();
+                    break;
+
+                default:
+                    return;
+                    
+            }
+
+        }
+    }
+
+    public static async Task SaveMoviesToDatabase(MovieJSON movieData)
+    {
+        using var context = new AppDbContext();
+
+        foreach (var item in movieData.Items)
+        {
+           
+            var existingMovie = await context.Movies
+                .FirstOrDefaultAsync(m => m.kinopoisk_id == item.KinopoiskId);
+
+            if (existingMovie != null) continue; 
+
+            var movie = new Movie
+            {
+                kinopoisk_id = item.KinopoiskId,
+                name_ru = item.NameRu,
+                year = item.Year,
+                rating_imdb = item.RatingImdb
+            };
+
+           
+            foreach (var genre in item.Genres)
+            {
+                var existingGenre = await context.Genres
+                    .FirstOrDefaultAsync(g => g.name == genre.Genre);
+
+                if (existingGenre != null)
+                {
+                    movie.Genres.Add(existingGenre);
+                }
+                else
+                {
+                    movie.Genres.Add(new Genre { name = genre.Genre });
+                }
+            }
+
+         
+            foreach (var country in item.Countries)
+            {
+                var existingCountry = await context.Countries
+                    .FirstOrDefaultAsync(c => c.name == country.Country);
+
+                if (existingCountry != null)
+                {
+                    movie.Countries.Add(existingCountry);
+                }
+                else
+                {
+                    movie.Countries.Add(new Country { name = country.Country });
+                }
+            }
+
+            context.Movies.Add(movie);
+        }
+
+        await context.SaveChangesAsync();
+    }
+    
 
 
-     }
+}
+public class MovieJSON
+{
+    public int TotalPages { get; set; }
+    public List<Item> Items { get; set; }
+}
+public class Item
+{
+    public int KinopoiskId { get; set; }
+    public string? NameRu { get; set; }
+    public int? Year { get; set; }
+    public double? RatingImdb { get; set; }
+    public List<Genres> Genres { get; set; }
+    public List<CountryMovieJSON> Countries { get; set; }
 
-     public static async Task SaveMoviesToDatabase(MovieJSON movieData)
-     {
-         using var context = new AppDbContext();
+}
 
-         foreach (var item in movieData.Items)
-         {
-            
-             var existingMovie = await context.Movies
-                 .FirstOrDefaultAsync(m => m.kinopoisk_id == item.KinopoiskId);
+public class CountryMovieJSON
+{
+    public string Country { get; set; }
+}
+public class Genres
+{
+    public string Genre { get; set; }
+}
 
-             if (existingMovie != null) continue; 
-
-             var movie = new Movie
-             {
-                 kinopoisk_id = item.KinopoiskId,
-                 name_ru = item.NameRu,
-                 year = item.Year,
-                 rating_imdb = item.RatingImdb
-             };
-
-            
-             foreach (var genre in item.Genres)
-             {
-                 var existingGenre = await context.Genres
-                     .FirstOrDefaultAsync(g => g.name == genre.Genre);
-
-                 if (existingGenre != null)
-                 {
-                     movie.Genres.Add(existingGenre);
-                 }
-                 else
-                 {
-                     movie.Genres.Add(new Genre { name = genre.Genre });
-                 }
-             }
-
-          
-             foreach (var country in item.Countries)
-             {
-                 var existingCountry = await context.Countries
-                     .FirstOrDefaultAsync(c => c.name == country.Country);
-
-                 if (existingCountry != null)
-                 {
-                     movie.Countries.Add(existingCountry);
-                 }
-                 else
-                 {
-                     movie.Countries.Add(new Country { name = country.Country });
-                 }
-             }
-
-             context.Movies.Add(movie);
-         }
-
-         await context.SaveChangesAsync();
-     }
-     
-
-
- }
- public class MovieJSON
- {
-     public List<Item> Items { get; set; }
- }
- public class Item
- {
-     public int KinopoiskId { get; set; }
-
-     public string? NameRu { get; set; }
-     public int? Year { get; set; }
-     public double? RatingImdb { get; set; }
-     public List<Genres> Genres { get; set; }
-     public List<CountryMovieJSON> Countries { get; set; }
- }
-
- public class CountryMovieJSON
- {
-     public string Country { get; set; }
- }
- public class Genres
- {
-     public string Genre { get; set; }
- }
-
- public class GetAPI
- {
-     public string ApiKey { get; set; }
- }
+public class GetAPI
+{
+    public string ApiKey { get; set; }
+}
 ```
 ## Movie.cs класс для взаимодействия с бд через Entity framework
 ```csharp
@@ -235,5 +262,11 @@ public class AppDbContext : DbContext
             j => j.HasOne<Country>().WithMany().HasForeignKey("country_id"),
             j => j.HasOne<Movie>().WithMany().HasForeignKey("movie_id"));
     }
+}
+```
+## appsetings.json там хранится API
+```json
+{
+  "ApiKey": "58157c64-2c1a-43c5-a66a-fe35ec7ef2c7"
 }
 ```
