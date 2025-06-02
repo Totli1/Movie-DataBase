@@ -9,10 +9,18 @@
 
 ## Скриншоты  работы
 
-![image](https://github.com/user-attachments/assets/f294c246-e4ed-4a89-9ac1-3a08956f596a)
+
+![image](https://github.com/user-attachments/assets/f1eff244-ec8f-472d-9703-46352bbb3afd)
+
+
+![image](https://github.com/user-attachments/assets/93290e4c-69cc-4767-a126-04be6467937e)
+
+
 
 
 ## Скриншоты бд
+
+
 
 ![image](https://github.com/user-attachments/assets/5a5765b7-2700-4b60-8f0a-a6370f47d879)
 
