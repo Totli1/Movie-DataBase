@@ -278,3 +278,33 @@ public class AppDbContext : DbContext
   "ApiKey": "58157c64-2c1a-43c5-a66a-fe35ec7ef2c7"
 }
 ```
+## SQL код базы данных
+```sql
+CREATE TABLE movies (
+    id SERIAL PRIMARY KEY,
+    kinopoisk_id INTEGER UNIQUE NOT NULL,
+    name_ru VARCHAR(255),
+    year INTEGER,
+    rating_imdb NUMERIC(3,1)
+   
+);
+CREATE TABLE genres (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100)  NOT NULL
+);
+CREATE TABLE countries (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100)  NOT NULL
+);
+
+CREATE TABLE movie_genres (
+    movie_id INTEGER NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+    genre_id INTEGER NOT NULL REFERENCES genres(id) ON DELETE CASCADE,
+    PRIMARY KEY (movie_id, genre_id)
+);
+CREATE TABLE movie_countries (
+    movie_id INTEGER NOT NULL REFERENCES movies(id) ON DELETE CASCADE,
+    country_id INTEGER NOT NULL REFERENCES countries(id) ON DELETE CASCADE,
+    PRIMARY KEY (movie_id, country_id)
+);
+```
